@@ -15,6 +15,7 @@ from torchvision import transforms
 #erosione e dilatazione
 from scipy.ndimage import binary_erosion, binary_dilation
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 DEBUG = False
 to_pil = transforms.ToPILImage()
 
@@ -51,7 +52,7 @@ transform = T.Compose([
     T.Normalize((MEAN,), (STD,))  # Normalize pixel values to range [-1, 1]
 ])
 
-onehot_before_cod = torch.LongTensor([i for i in range(10)]).cuda() #0123456789
+onehot_before_cod = torch.LongTensor([i for i in range(10)]).to(device) #0123456789
 onehot = nn.functional.one_hot(onehot_before_cod, num_classes=10)
 onehot = onehot.reshape(10,10,1,1).float()
 
@@ -65,17 +66,16 @@ class Paint(object):
         #riferimenti dell'immagine
         self.c1_image_tk = None
         self.c2_image_tk = None
-
-        self.device = torch.device("cuda")
         
+        self.device = device
         #UpdatedLeNet
         self.model = UpdatedLeNet(n_feature = 6,output_size = 3).to(self.device) #ResNet56
-        checkpoint = torch.load("Adam_0_002_ebrmnist_best.pth")
+        checkpoint = torch.load("Adam_0_002_ebrmnist_best.pth", map_location=torch.device(self.device))
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.model.eval()
         #GAN
         self.generator = MNIST_Generator().to(self.device) #DCGAN GENERATOR
-        self.generator.load_state_dict(torch.load("./generator_cDCGAN_22.pth"))
+        self.generator.load_state_dict(torch.load("./generator_cDCGAN_22.pth", map_location=torch.device(self.device)))
         self.generator.eval()
 
         #Canvas
