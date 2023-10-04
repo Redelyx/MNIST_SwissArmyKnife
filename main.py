@@ -1,5 +1,6 @@
-from UpdatedLeNet import UpdatedLeNet
+from Relation_Classifier import Relation_Classifier
 from MNIST_Generator import MNIST_Generator
+from MNIST_Classifier import MNIST_Classifier
 
 from tkinter import *
 from tkinter.colorchooser import askcolor
@@ -12,8 +13,6 @@ from matplotlib import pyplot as plt
 import torch.nn as nn
 from torchvision import transforms
 
-#erosione e dilatazione
-from scipy.ndimage import binary_erosion, binary_dilation
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 DEBUG = False
@@ -69,7 +68,7 @@ class Paint(object):
         
         self.device = device
         #UpdatedLeNet
-        self.model = UpdatedLeNet(n_feature = 6,output_size = 3).to(self.device) #ResNet56
+        self.model = Relation_Classifier(n_feature = 6,output_size = 3).to(self.device) #ResNet56
         checkpoint = torch.load("Adam_0_002_ebrmnist_best.pth", map_location=torch.device(self.device))
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.model.eval()
@@ -77,6 +76,10 @@ class Paint(object):
         self.generator = MNIST_Generator().to(self.device) #DCGAN GENERATOR
         self.generator.load_state_dict(torch.load("./generator_cDCGAN_22.pth", map_location=torch.device(self.device)))
         self.generator.eval()
+        #CLASSIFIER
+        self.classifier = MNIST_Classifier().to(self.device)
+        self.classifier.load_state_dict(torch.load("./classifier_trained.pth", map_location=torch.device(self.device)))
+        self.classifier.eval()
 
         #Canvas
         self.root = Tk()
@@ -138,6 +141,19 @@ class Paint(object):
 
         self.generate_button2 = Button(self.root, text='GENERATE', command=self.generate_image2)
         self.generate_button2.grid(row=3, column=4)
+
+
+        # Classifier canv1
+        self.label_classify1 = Label(self.root, text="_", font=("Helvetica", 12))
+        self.label_classify1.grid(row=4, column=1)  # Place it next to the label
+        self.classify_button1 = Button(self.root, text='PREDICT', command=self.classify_image1)
+        self.classify_button1.grid(row=4, column=0)
+        # Classifier canv2
+        self.label_classify2 = Label(self.root, text="_", font=("Helvetica", 12))
+        self.label_classify2.grid(row=4, column=4)  # Place it next to the label
+        self.classify_button2 = Button(self.root, text='PREDICT', command=self.classify_image2)
+        self.classify_button2.grid(row=4, column=3)
+
 
         self.compare_button = Button(self.root, text='COMPARE', command=self.compare)
         self.compare_button.grid(row=6, column=0, columnspan=6)
@@ -263,24 +279,35 @@ class Paint(object):
 
                 # Crea l'immagine nel canvas
                 canvas.create_image(0, 0, anchor='nw', image=image_tk)
-            
+
+    def classify_image1(self):
+        c1_ten = self.prepare_image(self.c1).unsqueeze(0).to(self.device)
+        outputs = self.classifier(c1_ten)
+        _, predicted = torch.max(outputs.data, 1)
+        if DEBUG:
+            print("PREDICT1: " + predicted)
+        self.label_classify1.config(text=predicted.item())
+
+        
+    def classify_image2(self):
+        c2_ten = self.prepare_image(self.c2).unsqueeze(0).to(self.device)
+        outputs = self.classifier(c2_ten)
+        _, predicted = torch.max(outputs.data, 1)
+        if DEBUG:
+            print("PREDICT2: " + predicted)
+        self.label_classify2.config(text=predicted.item())
+
+    def prepare_image(self, c):
+        c_image = self.convert_to_image(c)
+        c_image = c_image.convert("L")
+        c_image = ImageOps.invert(c_image)
+        c_image = c_image.resize((H, W), Image.Resampling.LANCZOS)
+        return transform(c_image)
+
     def compare(self):
-        c1_image = self.convert_to_image(self.c1)
-        c2_image = self.convert_to_image(self.c2)
-
-        #scala di grigi
-        c1_image = c1_image.convert("L")
-        c2_image = c2_image.convert("L")
-
-        #inverte i colori:
-        c1_image = ImageOps.invert(c1_image)
-        c2_image = ImageOps.invert(c2_image)
-
-        c1_image = c1_image.resize((H, W), Image.Resampling.LANCZOS)
-        c2_image = c2_image.resize((H, W), Image.Resampling.LANCZOS)
-
-        self.c1_tensor = transform(c1_image)
-        self.c2_tensor = transform(c2_image)
+        
+        self.c1_tensor = self.prepare_image(self.c1)
+        self.c2_tensor = self.prepare_image(self.c2)
 
         image_concat = torch.cat([self.c1_tensor, self.c2_tensor], dim=0) 
 
