@@ -7,4 +7,6 @@
 
 Download Ghostscript from https://www.ghostscript.com/releases/gsdnld.html
 
-Other requirements are specified in 'requirements.txt'. Install with 'pip install -r requirements'
+Other requirements are specified in 'requirements.txt'. Install with 'pip install -r requirements'.
+
+Run the gui with  'python main.py'.
